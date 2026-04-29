@@ -1,5 +1,7 @@
 # All of the Lights
 
+![Example](public/example.gif)
+
 A Next.js single-page app that recreates the rapid-fire title-card intro
 from Kanye West & Rihanna's "All of the Lights": ~25 short text frames
 flashed at full viewport with hard cuts (no fades, no transitions),
