@@ -3,9 +3,10 @@
 ![Example](public/example.gif)
 
 A Next.js single-page app that recreates the rapid-fire title-card intro
-from Kanye West & Rihanna's "All of the Lights": ~25 short text frames
-flashed at full viewport with hard cuts (no fades, no transitions),
-each visually unrelated to the prior one.
+inspired by "Enter the Void" by Gaspar Noé and "All of the Lights" by
+Kanye West and Rihanna: ~25 short text frames flashed at full viewport
+with hard cuts (no fades, no transitions), each visually unrelated to
+the prior one.
 
 Stack: Next.js 16 (App Router) · React 19 · TypeScript · Tailwind v4 ·
 `next/font/google`. No other dependencies — no Framer Motion, no animation
