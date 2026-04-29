@@ -1,65 +1,137 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useMemo, useState, useSyncExternalStore } from "react";
+import { type Frame } from "./frames";
+import { useFrames } from "./lib/framesStore";
+import { FlashCard } from "./components/FlashCard";
+import { PlaybackControls } from "./components/PlaybackControls";
+
+const REDUCE_MOTION_QUERY = "(prefers-reduced-motion: reduce)";
+
+function subscribeReduceMotion(callback: () => void) {
+  const mq = window.matchMedia(REDUCE_MOTION_QUERY);
+  mq.addEventListener("change", callback);
+  return () => mq.removeEventListener("change", callback);
+}
+
+function getReduceMotion() {
+  return window.matchMedia(REDUCE_MOTION_QUERY).matches;
+}
 
 export default function Home() {
+  const [ready, setReady] = useState(false);
+  const [index, setIndex] = useState(0);
+  const [paused, setPaused] = useState(false);
+
+  const frames = useFrames();
+  const reduceMotion = useSyncExternalStore(
+    subscribeReduceMotion,
+    getReduceMotion,
+    () => false,
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    const done = () => {
+      if (!cancelled) setReady(true);
+    };
+    if (typeof document !== "undefined" && "fonts" in document) {
+      document.fonts.ready.then(done);
+    } else {
+      done();
+    }
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const effectiveFrames: Frame[] = useMemo(() => {
+    if (!reduceMotion) return frames;
+    return frames.map((f) => ({
+      ...f,
+      durationMs: Math.max(1500, f.durationMs),
+      rotateDeg: 0,
+    }));
+  }, [frames, reduceMotion]);
+
+  const total = effectiveFrames.length;
+  const safeIndex = total > 0 ? index % total : 0;
+
+  useEffect(() => {
+    if (!ready || paused || total === 0) return;
+    const t = window.setTimeout(() => {
+      setIndex((i) => (i + 1) % total);
+    }, effectiveFrames[safeIndex].durationMs);
+    return () => window.clearTimeout(t);
+  }, [safeIndex, paused, ready, effectiveFrames, total]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA") return;
+      if (e.code === "Space") {
+        e.preventDefault();
+        setPaused((p) => !p);
+        return;
+      }
+      if (e.key === "r" || e.key === "R") {
+        setIndex(0);
+        setPaused(false);
+        return;
+      }
+      if (e.key === "ArrowRight" || e.key === "n") {
+        setPaused(true);
+        setIndex((i) => (total > 0 ? (i + 1) % total : 0));
+        return;
+      }
+      if (e.key === "ArrowLeft" || e.key === "b") {
+        setPaused(true);
+        setIndex((i) => (total > 0 ? (i - 1 + total) % total : 0));
+        return;
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [total]);
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <>
+      {ready && total > 0 ? (
+        <FlashCard frame={effectiveFrames[safeIndex]} />
+      ) : (
+        <div className="fixed inset-0 flex items-center justify-center bg-black text-white/60 font-mono text-sm">
+          {ready && total === 0 ? (
+            <div className="text-center">
+              <div className="mb-2">no cards yet.</div>
+              <a href="/settings" className="underline hover:text-white">
+                open settings →
+              </a>
+            </div>
+          ) : null}
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+      )}
+      <PlaybackControls
+        paused={paused}
+        index={safeIndex}
+        total={total}
+        frames={frames}
+        onTogglePause={() => setPaused((p) => !p)}
+        onRestart={() => {
+          setIndex(0);
+          setPaused(false);
+        }}
+        onPrev={() => {
+          if (total === 0) return;
+          setPaused(true);
+          setIndex((i) => (i - 1 + total) % total);
+        }}
+        onNext={() => {
+          if (total === 0) return;
+          setPaused(true);
+          setIndex((i) => (i + 1) % total);
+        }}
+        onPauseRequest={() => setPaused(true)}
+      />
+    </>
   );
 }
